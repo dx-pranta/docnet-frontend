@@ -75,7 +75,7 @@ export default function NewsDetails() {
 
   return (
     <div>
-      <Link to="/news" className="text-primaryunderline mb-4 inline-block">← Back to News-600 hover:</Link>
+      <Link to="/news" className="text-primary-600 hover:underline mb-4 inline-block">← Back to News</Link>
 
       <article className="card p-8 overflow-visible">
         <div className="mb-6">
@@ -121,7 +121,7 @@ export default function NewsDetails() {
               className={`flex items-center gap-2 ${reactionType === 'like' ? 'text-primary-600' : 'text-gray-600'} hover:text-primary-600`}
             >
               <FaThumbsUp className={reactionType === 'like' ? 'text-primary-600' : ''} />
-              {likesCount ?? 0} { (likesCount ?? 0) === 1 ? 'like' : 'likes'}
+              {likesCount ?? 0} {(likesCount ?? 0) === 1 ? 'like' : 'likes'}
             </button>
 
             {/* Reaction palette (simple) */}
@@ -172,7 +172,7 @@ export default function NewsDetails() {
 
       <div className="mt-8 card p-6">
         <h2 className="text-xl font-semibold mb-4">Comments ({commentsData?.data?.data?.length || 0})</h2>
-        
+
         {token && (
           <form onSubmit={(e) => { e.preventDefault(); commentMutation.mutate(); }} className="mb-6">
             <textarea

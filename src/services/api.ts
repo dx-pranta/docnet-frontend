@@ -61,7 +61,7 @@ export const galleryService = {
   getGalleries: (params?: any) => api.get('/galleries', { params }),
   getGallery: (id: number) => api.get(`/galleries/${id}`),
   createGallery: (data: any) => api.post('/galleries', data),
-  addPhotos: (id: number, photos: string[], caption?: string) => 
+  addPhotos: (id: number, photos: string[], caption?: string) =>
     api.post(`/galleries/${id}/photos`, { photos, caption }),
   deletePhoto: (photoId: number) => api.delete(`/galleries/photos/${photoId}`),
   likePhoto: (photoId: number) => api.post(`/galleries/photos/${photoId}/like`),
@@ -70,6 +70,7 @@ export const galleryService = {
 export const connectionService = {
   getConnections: () => api.get('/connections'),
   getRequests: () => api.get('/connections/requests'),
+  getSentRequests: () => api.get('/connections/requests/sent'),
   sendRequest: (recipientId: number) => api.post('/connections', { recipientId }),
   respondToRequest: (id: number, status: string) => api.put(`/connections/${id}`, { status }),
   removeConnection: (id: number) => api.delete(`/connections/${id}`),
@@ -78,17 +79,17 @@ export const connectionService = {
 export const messageService = {
   getConversations: () => api.get('/messages'),
   getMessages: (userId: number) => api.get(`/messages/${userId}`),
-  sendMessage: (recipientId: number, content: string) => 
+  sendMessage: (recipientId: number, content: string) =>
     api.post('/messages', { recipientId, content }),
 };
 
 export const paymentService = {
-  createPaymentIntent: (eventId: number) => 
+  createPaymentIntent: (eventId: number) =>
     api.post('/payments/stripe/create-intent', { eventId }),
-  confirmPayment: (paymentId: number) => 
+  confirmPayment: (paymentId: number) =>
     api.post('/payments/stripe/confirm', { paymentId }),
   getHistory: () => api.get('/payments/history'),
-  requestRefund: (paymentId: number) => 
+  requestRefund: (paymentId: number) =>
     api.post('/payments/refund', { paymentId }),
 };
 

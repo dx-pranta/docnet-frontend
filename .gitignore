@@ -1,0 +1,50 @@
+# Node
+node_modules/
+
+# Vite / build output
+dist/
+.vite/
+build/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Env files
+.env
+.env.*.local
+.env.local
+
+# Coverage
+coverage/
+
+# OS files
+.DS_Store
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Cache
+.cache/
+.tmp/
+
+# Pack output
+*.tgz
+
+# Misc
+.venv/
+coverage/
+
+# Lockfiles (optional - keep if you want deterministic installs)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
