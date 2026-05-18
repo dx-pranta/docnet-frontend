@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { messageService } from '../services/api';
+import { connectionService, messageService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { FaPaperPlane } from 'react-icons/fa';
 
@@ -14,6 +14,11 @@ export default function Messages() {
   const { data: conversationsData } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => messageService.getConversations(),
+  });
+
+  const { data: connectionsData } = useQuery({
+    queryKey: ['connections-for-messages'],
+    queryFn: () => connectionService.getConnections(),
   });
 
   const { data: messagesData, refetch } = useQuery({
@@ -33,6 +38,7 @@ export default function Messages() {
   });
 
   const conversations = conversationsData?.data?.data || [];
+  const connections = connectionsData?.data?.data || [];
   const messages = messagesData?.data?.data || [];
   const selectedUserId = Number(userId);
 
@@ -71,6 +77,25 @@ export default function Messages() {
           ) : (
             <p className="p-4 text-gray-500">No conversations yet</p>
           )}
+
+          <div className="p-4 border-t">
+            <h3 className="font-semibold text-sm text-gray-700 mb-3">Start New Message</h3>
+            {connections.length > 0 ? (
+              <div className="space-y-2">
+                {connections.map((conn: any) => (
+                  <Link
+                    key={conn.id}
+                    to={`/messages/${conn.user.id}`}
+                    className="block px-3 py-2 rounded-md text-sm hover:bg-gray-50"
+                  >
+                    {conn.user.firstName} {conn.user.lastName}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Connect with users to start messaging.</p>
+            )}
+          </div>
         </div>
 
         <div className="md:col-span-2 card flex flex-col">
@@ -110,8 +135,21 @@ export default function Messages() {
               </form>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              Select a conversation to start messaging
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-500 gap-3 px-6 text-center">
+              <p>Select a conversation to start messaging</p>
+              {connections.length > 0 ? (
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {connections.slice(0, 5).map((conn: any) => (
+                    <Link key={conn.id} to={`/messages/${conn.user.id}`} className="btn-primary">
+                      Message {conn.user.firstName}
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <Link to="/connections" className="btn-primary">
+                  Go to Connections
+                </Link>
+              )}
             </div>
           )}
         </div>
