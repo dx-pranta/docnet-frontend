@@ -68,29 +68,31 @@ export default function Events() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredEvents.map((event: any) => (
-            <article key={event.id} className="hf-card overflow-hidden">
-              <div className="h-48 bg-gradient-to-br from-secondary-100 to-primary-100 flex items-center justify-center">
-                <Calendar className="w-12 h-12 text-primary-700" />
+            <article key={event.id} className="hf-card overflow-hidden flex flex-col">
+              <div className="h-48 bg-gradient-to-br from-secondary-100 to-primary-100 flex items-center justify-center overflow-hidden">
+                {event.images?.length > 0 ? (
+                  <img src={event.images[0]} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Calendar className="w-12 h-12 text-primary-700" />
+                )}
               </div>
-              <div className="hf-card-content space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      {event.isPaid ? (
-                        <span className="px-2 py-1 rounded-md bg-secondary-100 text-secondary-800 text-xs font-semibold inline-flex items-center gap-1">
-                          <DollarSign className="w-3 h-3" /> ${event.price}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-xs font-semibold">Free</span>
-                      )}
-                      <span className="px-2 py-1 rounded-md border border-ink-200 text-ink-500 text-xs inline-flex items-center gap-1">
-                        <Users className="w-3 h-3" /> {event.eventType || 'General'}
+              <div className="hf-card-content flex flex-col gap-4 h-full">
+                <div>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    {event.isPaid ? (
+                      <span className="px-2 py-1 rounded-md bg-secondary-100 text-secondary-800 text-xs font-semibold inline-flex items-center gap-1">
+                        <DollarSign className="w-3 h-3" /> ${event.price}
                       </span>
-                    </div>
-                    <Link to={`/events/${event.id}`}>
-                      <h3 className="text-xl font-semibold text-ink-900 hover:text-secondary-700">{event.title}</h3>
-                    </Link>
+                    ) : (
+                      <span className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-xs font-semibold">Free</span>
+                    )}
+                    <span className="px-2 py-1 rounded-md border border-ink-200 text-ink-500 text-xs inline-flex items-center gap-1">
+                      <Users className="w-3 h-3" /> {event.eventType || 'General'}
+                    </span>
                   </div>
+                  <Link to={`/events/${event.id}`}>
+                    <h3 className="text-xl font-semibold text-ink-900 hover:text-secondary-700">{event.title}</h3>
+                  </Link>
                 </div>
 
                 <p className="text-ink-500 text-sm line-clamp-2">{event.description || 'No description available.'}</p>
@@ -110,7 +112,7 @@ export default function Events() {
                   </div>
                 </div>
 
-                <Link to={`/events/${event.id}`} className="btn-primary w-full">
+                <Link to={`/events/${event.id}`} className="btn-primary w-full mt-auto">
                   View Details & Register
                 </Link>
               </div>

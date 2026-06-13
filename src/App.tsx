@@ -34,6 +34,7 @@ export default function App() {
         <Route path="/events" element={<Events />} />
         <Route path="/events/:id" element={<EventDetails />} />
         <Route path="/events/create" element={<PrivateRoute><CreateEvent /></PrivateRoute>} />
+        <Route path="/events/:id/edit" element={<PrivateRoute><CreateEvent /></PrivateRoute>} />
         <Route path="/news" element={<News />} />
         <Route path="/news/:id" element={<NewsDetails />} />
         <Route path="/galleries" element={<Galleries />} />

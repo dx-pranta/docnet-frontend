@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { eventService, paymentService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import toast from 'react-hot-toast';
-import { FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaTicketAlt, FaCheck } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaTicketAlt, FaCheck, FaEdit, FaTrash } from 'react-icons/fa';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -60,12 +60,24 @@ function PaymentForm({ eventId, onSuccess }: { eventId: number; onSuccess: () =>
 export default function EventDetails() {
   const { id } = useParams();
   const { user, token } = useAuthStore();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showPayment, setShowPayment] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['event', id],
     queryFn: () => eventService.getEvent(Number(id)),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => eventService.deleteEvent(Number(id)),
+    onSuccess: () => {
+      toast.success('Event deleted');
+      navigate('/events');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete event');
+    },
   });
 
   const registerMutation = useMutation({
@@ -100,6 +112,14 @@ export default function EventDetails() {
               {event.eventType}
             </span>
             <h1 className="text-3xl font-bold text-gray-900 mt-2">{event.title}</h1>
+
+            {event.images?.length > 0 && (
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                {event.images.map((url: string, i: number) => (
+                  <img key={i} src={url} alt="" className="w-full h-48 object-cover rounded-lg" />
+                ))}
+              </div>
+            )}
 
             <div className="mt-6 space-y-4 text-gray-600">
               <p className="flex items-center gap-3">
@@ -175,7 +195,24 @@ export default function EventDetails() {
                   )}
                 </div>
               ) : isOrganizer ? (
-                <p className="text-gray-500 text-center">You are the organizer</p>
+                <div className="space-y-3">
+                  <Link
+                    to={`/events/${id}/edit`}
+                    className="w-full btn-primary flex items-center justify-center gap-2"
+                  >
+                    <FaEdit /> Edit Event
+                  </Link>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Delete this event? This cannot be undone.')) {
+                        deleteMutation.mutate();
+                      }
+                    }}
+                    className="w-full btn-secondary flex items-center justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <FaTrash /> Delete Event
+                  </button>
+                </div>
               ) : event.isPaid ? (
                 <>
                   <button
