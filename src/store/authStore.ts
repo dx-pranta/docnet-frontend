@@ -16,6 +16,7 @@ interface User {
   coverPhoto?: string;
   ahpraId?: string;
   yearsExperience?: number;
+  isVerified?: boolean;
 }
 
 interface AuthState {

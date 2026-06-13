@@ -34,8 +34,13 @@ export default function Login() {
     try {
       const response = await authService.login(data.email, data.password);
       setAuth(response.data.token, response.data.user);
-      toast.success('Welcome back!');
-      navigate('/dashboard');
+      if (!response.data.user.isVerified) {
+        toast.success('Welcome back! Please verify your email.');
+        navigate('/verify-email');
+      } else {
+        toast.success('Welcome back!');
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed');
     } finally {

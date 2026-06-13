@@ -51,8 +51,8 @@ export default function Register() {
     try {
       const response = await authService.register(data);
       setAuth(response.data.token, response.data.user);
-      toast.success('Account created successfully!');
-      navigate('/dashboard');
+      toast.success('Account created! Check your email for the verification code.');
+      navigate('/verify-email');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration failed');
     } finally {

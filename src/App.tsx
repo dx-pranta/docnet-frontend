@@ -4,6 +4,7 @@ import Layout from './components/layout/Layout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
 import EventDetails from './pages/EventDetails';
@@ -19,8 +20,10 @@ import PaymentHistory from './pages/PaymentHistory';
 import Settings from './pages/Settings';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { token } = useAuthStore();
-  return token ? <>{children}</> : <Navigate to="/login" />;
+  const { token, user } = useAuthStore();
+  if (!token) return <Navigate to="/login" />;
+  if (user && !user.isVerified) return <Navigate to="/verify-email" />;
+  return <>{children}</>;
 }
 
 export default function App() {
@@ -29,6 +32,7 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
