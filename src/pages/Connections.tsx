@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Search, UserCheck, UserPlus, UserX, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+
 import { connectionService, userService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import toast from 'react-hot-toast';
-import { FaUserPlus, FaCheck, FaTimes, FaUserMinus, FaUserFriends, FaInbox, FaSearch, FaUserClock } from 'react-icons/fa';
 
 export default function Connections() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'connections' | 'requests' | 'discover'>('connections');
+
+  const [activeTab, setActiveTab] = useState<'my-connections' | 'pending' | 'browse'>('my-connections');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: connectionsData } = useQuery({
     queryKey: ['connections'],
@@ -64,222 +67,208 @@ export default function Connections() {
   const sentRequests = sentRequestsData?.data?.data || [];
   const allUsers = usersData?.data?.data || [];
 
-  const connectedUserIds = connections.map((c: any) => c.user.id);
-  const pendingRequestIds = requests.map((r: any) => r.requesterId);
-  const sentRequestUserIds = sentRequests.map((r: any) => r.recipientId);
+  const connectedUserIds = connections.map((connection: any) => connection.user.id);
+  const pendingRequestIds = requests.map((request: any) => request.requesterId);
+  const sentRequestUserIds = sentRequests.map((request: any) => request.recipientId);
 
-  const availableUsers = allUsers.filter((u: any) =>
-    u.id !== user?.id &&
-    !connectedUserIds.includes(u.id) &&
-    !pendingRequestIds.includes(u.id) &&
-    !sentRequestUserIds.includes(u.id)
+  const availableUsers = allUsers.filter(
+    (candidate: any) =>
+      candidate.id !== user?.id &&
+      !connectedUserIds.includes(candidate.id) &&
+      !pendingRequestIds.includes(candidate.id) &&
+      !sentRequestUserIds.includes(candidate.id)
+  );
+
+  const filterBySearch = (list: any[], mapText: (item: any) => string) => {
+    if (!searchQuery.trim()) return list;
+    const query = searchQuery.toLowerCase();
+    return list.filter((item) => mapText(item).toLowerCase().includes(query));
+  };
+
+  const filteredConnections = useMemo(
+    () => filterBySearch(connections, (item) => `${item.user.firstName} ${item.user.lastName} ${item.user.specialty || ''}`),
+    [connections, searchQuery]
+  );
+  const filteredRequests = useMemo(
+    () => filterBySearch(requests, (item) => `${item.requester.firstName} ${item.requester.lastName} ${item.requester.specialty || ''}`),
+    [requests, searchQuery]
+  );
+  const filteredUsers = useMemo(
+    () => filterBySearch(availableUsers, (item) => `${item.firstName} ${item.lastName} ${item.specialty || ''}`),
+    [availableUsers, searchQuery]
   );
 
   return (
-    <div className="max-w-6xl mx-auto font-sans">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Connections</h1>
-          <p className="text-slate-500 mt-1">Manage your professional network and discover new colleagues.</p>
-        </div>
+    <div className="max-w-[1200px] mx-auto">
+      <div className="mb-6">
+        <h1 className="text-3xl font-semibold mb-2 text-ink-900">Connections</h1>
+        <p className="text-ink-500">Connect with verified medical professionals across South Australia</p>
       </div>
 
-      <div className="mb-8 border-b border-slate-200">
-        <nav className="flex gap-8">
-          <button
-            onClick={() => setActiveTab('connections')}
-            className={`pb-4 text-sm font-semibold transition-colors border-b-2 ${activeTab === 'connections' ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-          >
-            <div className="flex items-center gap-2">
-              <FaUserFriends className="w-4 h-4" />
-              My Connections
-              <span className={`py-0.5 px-2 rounded-full text-xs ${activeTab === 'connections' ? 'bg-primary-100' : 'bg-slate-100 text-slate-600'}`}>{connections.length}</span>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('requests')}
-            className={`pb-4 text-sm font-semibold transition-colors border-b-2 ${activeTab === 'requests' ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-          >
-            <div className="flex items-center gap-2">
-              <FaInbox className="w-4 h-4" />
-              Requests
-              {(requests.length > 0 || sentRequests.length > 0) && (
-                <span className={`py-0.5 px-2 rounded-full text-xs ${activeTab === 'requests' ? 'bg-primary-100' : 'bg-rose-100 text-rose-600'}`}>{requests.length + sentRequests.length}</span>
-              )}
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('discover')}
-            className={`pb-4 text-sm font-semibold transition-colors border-b-2 ${activeTab === 'discover' ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-          >
-            <div className="flex items-center gap-2">
-              <FaSearch className="w-4 h-4" />
-              Discover
-            </div>
-          </button>
-        </nav>
-      </div>
-
-      <div className="min-h-[400px]">
-        {/* MY CONNECTIONS TAB */}
-        {activeTab === 'connections' && (
-          <div>
-            {connections.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {connections.map((conn: any) => (
-                  <div key={conn.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center group">
-                    <Link to={`/profile/${conn.user.id}`} className="mb-4">
-                      <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-primary-100 to-blue-50 flex items-center justify-center border-4 border-white shadow-sm group-hover:scale-105 transition-transform">
-                        <span className="text-xl text-primary-600 font-bold">{conn.user.firstName?.[0]}{conn.user.lastName?.[0]}</span>
-                      </div>
-                    </Link>
-                    <Link to={`/profile/${conn.user.id}`}>
-                      <h3 className="font-bold text-slate-900 text-lg hover:text-primary-600 transition-colors">{conn.user.firstName} {conn.user.lastName}</h3>
-                    </Link>
-                    <p className="text-sm text-slate-500 font-medium mb-6">{conn.user.specialty || conn.user.title || 'Doctor'}</p>
-                    <button
-                      onClick={() => removeMutation.mutate(conn.id)}
-                      className="mt-auto w-full py-2.5 rounded-xl font-medium text-slate-600 bg-slate-50 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <FaUserMinus className="w-4 h-4" /> Remove Connection
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-24 bg-white rounded-3xl border border-slate-100 border-dashed">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FaUserFriends className="w-10 h-10 text-slate-300" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">No connections yet</h3>
-                <p className="text-slate-500 max-w-md mx-auto mb-8">Start building your professional network by discovering and connecting with other medical professionals.</p>
-                <button onClick={() => setActiveTab('discover')} className="btn-primary">
-                  Find Doctors
-                </button>
-              </div>
-            )}
+      <section className="hf-card mb-6">
+        <div className="hf-card-content">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-400" />
+            <input
+              placeholder="Search by name or specialty..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field pl-10"
+            />
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* REQUESTS TAB */}
-        {activeTab === 'requests' && (
-          <div className="grid lg:grid-cols-2 gap-12">
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-amber-100 text-amber-600 p-2 rounded-lg"><FaInbox className="w-5 h-5" /></div>
-                <h2 className="text-xl font-bold text-slate-900">Received Requests ({requests.length})</h2>
-              </div>
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          type="button"
+          onClick={() => setActiveTab('my-connections')}
+          className={`hf-tab ${activeTab === 'my-connections' ? 'hf-tab-active' : 'hf-tab-inactive'}`}
+        >
+          My Connections ({connections.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('pending')}
+          className={`hf-tab ${activeTab === 'pending' ? 'hf-tab-active' : 'hf-tab-inactive'}`}
+        >
+          Pending ({requests.length + sentRequests.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('browse')}
+          className={`hf-tab ${activeTab === 'browse' ? 'hf-tab-active' : 'hf-tab-inactive'}`}
+        >
+          Browse Doctors
+        </button>
+      </div>
 
-              {requests.length > 0 ? (
-                <div className="space-y-4">
-                  {requests.map((req: any) => (
-                    <div key={req.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                      <Link to={`/profile/${req.requester.id}`} className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center border border-amber-100/50">
-                          <span className="text-amber-600 font-bold">{req.requester.firstName?.[0]}</span>
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-900">{req.requester.firstName} {req.requester.lastName}</p>
-                          <p className="text-sm text-slate-500 font-medium">{req.requester.specialty || 'Doctor'}</p>
-                        </div>
-                      </Link>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => respondMutation.mutate({ id: req.id, status: 'accepted' })}
-                          className="w-10 h-10 flex items-center justify-center bg-primary-600 text-white rounded-full hover:bg-primary-700 transition-colors shadow-sm shadow-primary-500/30"
-                          title="Accept"
-                        >
-                          <FaCheck />
-                        </button>
-                        <button
-                          onClick={() => respondMutation.mutate({ id: req.id, status: 'rejected' })}
-                          className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-600 rounded-full hover:bg-rose-100 hover:text-rose-600 transition-colors"
-                          title="Decline"
-                        >
-                          <FaTimes />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+      {activeTab === 'my-connections' && (
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredConnections.map((connection: any) => (
+            <article key={connection.id} className="hf-card">
+              <div className="hf-card-content flex gap-4">
+                <Link to={`/profile/${connection.user.id}`}>
+                  <div className="w-16 h-16 rounded-full bg-secondary-100 border border-secondary-200 flex items-center justify-center">
+                    <span className="font-semibold text-secondary-700">{connection.user.firstName?.[0]}{connection.user.lastName?.[0]}</span>
+                  </div>
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <Link to={`/profile/${connection.user.id}`}>
+                    <h3 className="font-semibold hover:text-secondary-700">{connection.user.firstName} {connection.user.lastName}</h3>
+                  </Link>
+                  <p className="text-sm text-ink-500">{connection.user.specialty || 'Medical Professional'}</p>
+                  <div className="flex gap-2 mt-3">
+                    <Link to={`/profile/${connection.user.id}`} className="btn-secondary text-sm px-3 py-1.5">View Profile</Link>
+                    <Link to={`/messages/${connection.user.id}`} className="btn-primary text-sm px-3 py-1.5">Message</Link>
+                  </div>
                 </div>
-              ) : (
-                <div className="bg-slate-50 p-8 rounded-2xl text-center border border-slate-100/50">
-                  <p className="text-slate-500 font-medium">You have no pending requests.</p>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-blue-100 text-blue-600 p-2 rounded-lg"><FaUserClock className="w-5 h-5" /></div>
-                <h2 className="text-xl font-bold text-slate-900">Sent Requests ({sentRequests.length})</h2>
               </div>
+            </article>
+          ))}
+          {filteredConnections.length === 0 && (
+            <section className="hf-card md:col-span-2">
+              <div className="hf-card-content py-16 text-center text-ink-500">No connections found.</div>
+            </section>
+          )}
+        </section>
+      )}
 
-              {sentRequests.length > 0 ? (
-                <div className="space-y-4">
-                  {sentRequests.map((req: any) => (
-                    <div key={req.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between opacity-80 hover:opacity-100 transition-opacity">
-                      <Link to={`/profile/${req.recipient.id}`} className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100/50">
-                          <span className="text-blue-600 font-bold">{req.recipient.firstName?.[0]}</span>
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-900">{req.recipient.firstName} {req.recipient.lastName}</p>
-                          <p className="text-sm text-slate-500 font-medium">Pending response</p>
-                        </div>
+      {activeTab === 'pending' && (
+        <section className="space-y-4">
+          {filteredRequests.map((request: any) => (
+            <article key={request.id} className="hf-card">
+              <div className="hf-card-content flex items-start gap-4">
+                <Link to={`/profile/${request.requester.id}`}>
+                  <div className="w-16 h-16 rounded-full bg-secondary-100 border border-secondary-200 flex items-center justify-center">
+                    <span className="font-semibold text-secondary-700">{request.requester.firstName?.[0]}{request.requester.lastName?.[0]}</span>
+                  </div>
+                </Link>
+                <div className="flex-1">
+                  <Link to={`/profile/${request.requester.id}`}>
+                    <h3 className="font-semibold hover:text-secondary-700">{request.requester.firstName} {request.requester.lastName}</h3>
+                  </Link>
+                  <p className="text-sm text-ink-500">{request.requester.specialty || 'Medical Professional'}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => respondMutation.mutate({ id: request.id, status: 'accepted' })}
+                    className="btn-primary px-3 py-2"
+                  >
+                    <UserCheck className="w-4 h-4" /> Accept
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => respondMutation.mutate({ id: request.id, status: 'rejected' })}
+                    className="btn-secondary px-3 py-2"
+                  >
+                    <UserX className="w-4 h-4" /> Decline
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+
+          {sentRequests.length > 0 && (
+            <section className="hf-card">
+              <div className="hf-card-content">
+                <h3 className="font-semibold mb-3">Sent Requests</h3>
+                <div className="space-y-3">
+                  {sentRequests.map((request: any) => (
+                    <div key={request.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-ink-200 bg-white">
+                      <Link to={`/profile/${request.recipient.id}`} className="text-sm font-medium text-ink-800 hover:text-secondary-700">
+                        {request.recipient.firstName} {request.recipient.lastName}
                       </Link>
-                      <button
-                        onClick={() => removeMutation.mutate(req.id)}
-                        className="text-sm font-medium px-4 py-2 border border-slate-200 text-slate-600 bg-white hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 rounded-xl transition-colors"
-                      >
-                        Cancel
+                      <button type="button" onClick={() => removeMutation.mutate(request.id)} className="btn-secondary text-sm px-2.5 py-1.5">
+                        <X className="w-3.5 h-3.5" /> Cancel
                       </button>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="bg-slate-50 p-8 rounded-2xl text-center border border-slate-100/50">
-                  <p className="text-slate-500 font-medium">No sent requests.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+              </div>
+            </section>
+          )}
 
-        {/* DISCOVER TAB */}
-        {activeTab === 'discover' && (
-          <div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {availableUsers.map((u: any) => (
-                <div key={u.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center group">
-                  <Link to={`/profile/${u.id}`} className="mb-4">
-                    <div className="w-20 h-20 mx-auto rounded-full bg-slate-50 flex items-center justify-center border-4 border-white shadow-sm group-hover:scale-105 transition-transform">
-                      <span className="text-xl text-slate-400 font-bold">{u.firstName?.[0]}{u.lastName?.[0]}</span>
-                    </div>
-                  </Link>
-                  <Link to={`/profile/${u.id}`}>
-                    <h3 className="font-bold text-slate-900 text-lg hover:text-primary-600 transition-colors">{u.firstName} {u.lastName}</h3>
-                  </Link>
-                  <p className="text-sm text-slate-500 font-medium mb-6">{u.specialty || u.title || 'Doctor'}</p>
-                  <button
-                    onClick={() => sendRequestMutation.mutate(u.id)}
-                    className="mt-auto w-full py-2.5 rounded-xl font-medium text-primary-700 bg-primary-50 hover:bg-primary-600 hover:text-white transition-colors shadow-sm flex items-center justify-center gap-2"
-                  >
-                    <FaUserPlus className="w-4 h-4" /> Connect
-                  </button>
-                </div>
-              ))}
+          {filteredRequests.length === 0 && sentRequests.length === 0 && (
+            <section className="hf-card">
+              <div className="hf-card-content py-16 text-center text-ink-500">No pending connection requests.</div>
+            </section>
+          )}
+        </section>
+      )}
 
-              {availableUsers.length === 0 && (
-                <div className="col-span-full text-center py-24 bg-white rounded-3xl border border-slate-100 border-dashed">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">You're completely connected!</h3>
-                  <p className="text-slate-500 max-w-md mx-auto">There are no more doctors available to connect with right now. Check back later as more professionals join.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      {activeTab === 'browse' && (
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredUsers.map((candidate: any) => (
+            <article key={candidate.id} className="hf-card">
+              <div className="hf-card-content text-center">
+                <Link to={`/profile/${candidate.id}`}>
+                  <div className="w-20 h-20 mx-auto rounded-full bg-ink-100 border border-ink-200 flex items-center justify-center">
+                    <span className="font-semibold text-ink-700">{candidate.firstName?.[0]}{candidate.lastName?.[0]}</span>
+                  </div>
+                </Link>
+                <Link to={`/profile/${candidate.id}`}>
+                  <h3 className="font-semibold mt-3 hover:text-secondary-700">{candidate.firstName} {candidate.lastName}</h3>
+                </Link>
+                <p className="text-sm text-ink-500">{candidate.specialty || candidate.title || 'Medical Professional'}</p>
+                <button
+                  type="button"
+                  className="btn-primary w-full mt-4"
+                  onClick={() => sendRequestMutation.mutate(candidate.id)}
+                >
+                  <UserPlus className="w-4 h-4" /> Connect
+                </button>
+              </div>
+            </article>
+          ))}
+          {filteredUsers.length === 0 && (
+            <section className="hf-card lg:col-span-3">
+              <div className="hf-card-content py-16 text-center text-ink-500">No doctors found.</div>
+            </section>
+          )}
+        </section>
+      )}
     </div>
   );
 }

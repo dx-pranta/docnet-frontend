@@ -1,27 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-muted: #eef3f8;
+    --text: #243447;
+    --text-soft: #5c6f82;
+    --border: #dbe5ee;
+  }
+
+  * {
+    @apply border-ink-200;
+  }
+
+  html,
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-ink-100 text-ink-800 font-sans;
+    background:
+      radial-gradient(circle at 10% 10%, rgba(46, 134, 193, 0.08) 0%, rgba(46, 134, 193, 0) 35%),
+      radial-gradient(circle at 90% 0%, rgba(31, 56, 100, 0.12) 0%, rgba(31, 56, 100, 0) 40%),
+      linear-gradient(180deg, #f7fafe 0%, #f2f6fb 50%, #eef3f8 100%);
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-600 to-primary-500 text-white px-5 py-2.5 rounded-xl hover:from-primary-700 hover:to-primary-600 transition-all duration-300 font-medium shadow-sm hover:shadow-md active:scale-95;
+    @apply inline-flex items-center justify-center gap-2 bg-primary-900 text-white px-5 py-2.5 rounded-xl hover:bg-primary-800 transition-colors duration-200 font-semibold shadow-sm active:scale-[0.98];
   }
 
   .btn-secondary {
-    @apply bg-white text-slate-700 px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-300 font-medium shadow-sm active:scale-95 text-center;
+    @apply inline-flex items-center justify-center gap-2 bg-white text-ink-700 px-5 py-2.5 rounded-xl border border-ink-200 hover:bg-ink-50 hover:border-ink-300 transition-colors duration-200 font-semibold shadow-sm active:scale-[0.98] text-center;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all placeholder-slate-400 text-slate-800 shadow-sm hover:border-slate-300;
+    @apply w-full px-4 py-3 bg-white border border-ink-200 rounded-xl focus:ring-2 focus:ring-secondary-500/20 focus:border-secondary-500 outline-none transition-all placeholder-ink-400 text-ink-800 shadow-sm hover:border-ink-300;
   }
 
   .card {
-    @apply bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 overflow-hidden;
+    @apply bg-white/95 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-ink-200/80 overflow-hidden backdrop-blur;
+  }
+
+  .section-shell {
+    @apply rounded-3xl border border-white/60 bg-white/70 shadow-xl shadow-primary-900/5 backdrop-blur-sm;
+  }
+
+  .hf-card {
+    @apply bg-white border border-ink-200 rounded-2xl shadow-sm;
+  }
+
+  .hf-card-content {
+    @apply p-5 md:p-6;
+  }
+
+  .hf-tab {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+  }
+
+  .hf-tab-active {
+    @apply bg-primary-900 text-white;
+  }
+
+  .hf-tab-inactive {
+    @apply bg-white text-ink-600 border border-ink-200 hover:bg-ink-50;
+  }
+
+  .page-title {
+    @apply font-display text-3xl md:text-4xl font-semibold tracking-tight text-primary-900;
+  }
+
+  .page-subtitle {
+    @apply text-ink-600 text-sm md:text-base;
   }
 }
