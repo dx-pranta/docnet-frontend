@@ -16,6 +16,7 @@ import Connections from './pages/Connections';
 import Messages from './pages/Messages';
 import Profile from './pages/Profile';
 import PaymentHistory from './pages/PaymentHistory';
+import Settings from './pages/Settings';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuthStore();
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/messages/:userId" element={<PrivateRoute><Messages /></PrivateRoute>} />
         <Route path="/profile/:id" element={<Profile />} />
         <Route path="/payment" element={<PrivateRoute><PaymentHistory /></PrivateRoute>} />
+        <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
       </Route>
     </Routes>
   );

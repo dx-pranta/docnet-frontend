@@ -214,10 +214,23 @@ export default function Dashboard() {
                     </div>
                   </div>
 
+                  {item.featuredImage && (
+                    <Link to={`/news/${item.id}`}>
+                      <img src={item.featuredImage} alt="" className="w-full h-48 object-cover rounded-xl" />
+                    </Link>
+                  )}
                   <Link to={`/news/${item.id}`}>
                     <h3 className="text-lg font-semibold text-ink-800 hover:text-secondary-700">{item.title}</h3>
                   </Link>
-                  {item.summary && <p className="text-sm text-ink-600">{item.summary}</p>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {item.category && (
+                      <span className="px-2 py-0.5 rounded-md bg-secondary-100 text-secondary-800 text-xs font-semibold">{item.category}</span>
+                    )}
+                    {item.tags?.slice(0, 3).map((tag: string) => (
+                      <span key={tag} className="text-xs text-ink-400">#{tag}</span>
+                    ))}
+                  </div>
+                  {item.content && <p className="text-sm text-ink-600 line-clamp-3">{item.content}</p>}
 
                   <div className="flex items-center gap-2 text-sm border-t border-b border-ink-200 py-2 text-ink-500">
                     <span>{item.likesCount ?? item.likes?.length ?? item.likedBy?.length ?? 0} reactions</span>

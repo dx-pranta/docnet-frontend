@@ -10,6 +10,12 @@ interface User {
   specialty?: string;
   role: string;
   avatar?: string;
+  hospital?: string;
+  bio?: string;
+  qualifications?: string[];
+  coverPhoto?: string;
+  ahpraId?: string;
+  yearsExperience?: number;
 }
 
 interface AuthState {
