@@ -248,5 +248,28 @@ const onSubmit = async (data: FormData) => {
 };
 ```
 
-Follow these guidelines to maintain consistency and quality across the DocNet frontend codebase.</content>
+Follow these guidelines to maintain consistency and quality across the DocNet frontend codebase.
+
+## Stripe Payments
+
+### Key files
+- `src/pages/EventDetails.tsx` — `PaymentForm` component with `CardElement`
+- `src/pages/PaymentHistory.tsx` — payment history list
+- `src/services/api.ts` — `paymentService` methods
+
+### Environment
+```env
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+Publishable key is read via `import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY`.
+The `src/vite-env.d.ts` file provides Vite type declarations (`/// <reference types="vite/client" />`).
+
+### Payment flow
+1. `paymentService.createPaymentIntent(eventId)` → gets `clientSecret` + `paymentId`
+2. `stripe.confirmCardPayment(clientSecret, { card })` → Stripe.js confirms
+3. On success: `paymentService.confirmPayment(paymentId)` → backend creates registration
+
+### Testing
+- Use Stripe test card `4242 4242 4242 4242`
+- Backend must have Stripe CLI running for webhook support</content>
 <parameter name="filePath">/Users/debasish/docnet-frontend/AGENTS.md

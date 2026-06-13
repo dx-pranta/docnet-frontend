@@ -8,7 +8,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import toast from 'react-hot-toast';
 import { FaMapMarkerAlt, FaCalendarAlt, FaUsers, FaTicketAlt, FaCheck } from 'react-icons/fa';
 
-const stripePromise = loadStripe('pk_test_your_stripe_publishable_key');
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 function PaymentForm({ eventId, onSuccess }: { eventId: number; onSuccess: () => void }) {
   const stripe = useStripe();

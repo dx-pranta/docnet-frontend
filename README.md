@@ -15,6 +15,16 @@ npm run dev
 npm run build
 ```
 
+## Environment
+
+Create `.env` in project root:
+
+```env
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+> In development the Vite proxy forwards `/api` → `localhost:5001`. No `VITE_API_URL` needed.
+
 ## Key Dependencies
 
 - react-router-dom - Routing
@@ -22,7 +32,19 @@ npm run build
 - zustand - State management
 - react-hook-form - Forms
 - @tanstack/react-query - Data fetching
-- @stripe/react-stripe-js - Stripe UI
+- @stripe/react-stripe-js - Stripe UI components
+- @stripe/stripe-js - Stripe.js loader
+
+## Stripe Integration
+
+| File | Role |
+|---|---|
+| `src/services/api.ts` | `paymentService` methods: `createPaymentIntent`, `confirmPayment`, `getHistory`, `requestRefund` |
+| `src/pages/EventDetails.tsx` | `PaymentForm` component with `CardElement`, triggered on paid events |
+| `src/pages/PaymentHistory.tsx` | Displays past payments with refund support |
+
+Publishable key is read from `import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY`.
+The `vite-env.d.ts` file adds Vite type declarations for `import.meta.env`.
 
 ## Pages
 
@@ -31,7 +53,7 @@ npm run build
 - `/register` - Registration
 - `/dashboard` - User dashboard
 - `/events` - Events list
-- `/events/:id` - Event details
+- `/events/:id` - Event details (incl. Stripe payment form)
 - `/events/create` - Create event
 - `/news` - News list
 - `/news/:id` - News details

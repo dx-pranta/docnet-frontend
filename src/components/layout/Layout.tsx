@@ -55,8 +55,12 @@ export default function Layout() {
             </button>
             {user && (
               <Link to={`/profile/${user.id}`} className="hidden sm:flex items-center gap-2 ml-1">
-                <div className="w-9 h-9 rounded-full bg-ink-100 border border-ink-200 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-ink-700">{user.firstName?.[0]}{user.lastName?.[0]}</span>
+                <div className="w-9 h-9 rounded-full bg-ink-100 border border-ink-200 flex items-center justify-center overflow-hidden">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-semibold text-ink-700">{user.firstName?.[0]}{user.lastName?.[0]}</span>
+                  )}
                 </div>
               </Link>
             )}

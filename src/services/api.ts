@@ -55,16 +55,34 @@ export const newsService = {
   likeNews: (id: number, type?: string) => api.post(`/news/${id}/like`, { type }),
   getComments: (id: number) => api.get(`/news/${id}/comments`),
   addComment: (id: number, content: string) => api.post(`/news/${id}/comments`, { content }),
+  deleteComment: (commentId: number) => api.delete(`/news/comments/${commentId}`),
 };
 
 export const galleryService = {
   getGalleries: (params?: any) => api.get('/galleries', { params }),
   getGallery: (id: number) => api.get(`/galleries/${id}`),
   createGallery: (data: any) => api.post('/galleries', data),
+  deleteGallery: (id: number) => api.delete(`/galleries/${id}`),
   addPhotos: (id: number, photos: string[], caption?: string) =>
     api.post(`/galleries/${id}/photos`, { photos, caption }),
   deletePhoto: (photoId: number) => api.delete(`/galleries/photos/${photoId}`),
   likePhoto: (photoId: number) => api.post(`/galleries/photos/${photoId}/like`),
+};
+
+export const uploadService = {
+  uploadImage: (file: File, blurSensitiveData?: boolean) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (blurSensitiveData) {
+      formData.append('blurSensitiveData', 'true');
+    }
+
+    return api.post('/uploads/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 
 export const connectionService = {

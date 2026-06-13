@@ -5,16 +5,33 @@ import { newsService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { FaEye, FaThumbsUp, FaUser, FaCalendarAlt } from 'react-icons/fa';
+import { Trash2 } from 'lucide-react';
 
 export default function NewsDetails() {
   const { id } = useParams();
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState('');
   const [likesCount, setLikesCount] = useState<number | null>(null);
   const [liked, setLiked] = useState<boolean | null>(null);
   const [reactionType, setReactionType] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
+
+  const handleSubmitComment = () => {
+    const nextComment = comment.trim();
+
+    if (!token) {
+      toast.error('Please login to comment');
+      return;
+    }
+
+    if (!nextComment) {
+      toast.error('Comment cannot be empty');
+      return;
+    }
+
+    commentMutation.mutate(nextComment);
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['news', id],
@@ -36,13 +53,43 @@ export default function NewsDetails() {
   });
 
   const commentMutation = useMutation({
-    mutationFn: () => newsService.addComment(Number(id), comment),
-    onSuccess: () => {
+    mutationFn: (content: string) => newsService.addComment(Number(id), content),
+    onSuccess: (response) => {
       setComment('');
+      queryClient.setQueryData(['news-comments', id], (previous: any) => {
+        const previousComments = previous?.data?.data || [];
+
+        return {
+          ...previous,
+          data: {
+            ...previous?.data,
+            data: [response.data.data, ...previousComments],
+          },
+        };
+      });
       queryClient.invalidateQueries({ queryKey: ['news-comments', id] });
       toast.success('Comment added!');
     },
-    onError: () => toast.error('Failed to add comment'),
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to add comment'),
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: number) => newsService.deleteComment(commentId),
+    onSuccess: (_, commentId) => {
+      queryClient.setQueryData(['news-comments', id], (previous: any) => {
+        const previousComments = previous?.data?.data || [];
+
+        return {
+          ...previous,
+          data: {
+            ...previous?.data,
+            data: previousComments.filter((commentItem: any) => commentItem.id !== commentId),
+          },
+        };
+      });
+      toast.success('Comment deleted');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to delete comment'),
   });
 
   const article = data?.data?.data;
@@ -50,20 +97,15 @@ export default function NewsDetails() {
   // initialize local like state from fetched article
   React.useEffect(() => {
     if (article) {
-      // backend may return likes (array) or likesCount and liked
-      const count = article.likes?.length ?? article.likesCount ?? 0;
-      const isLiked = typeof article.liked === 'boolean' ? article.liked : !!(article.likedBy && article.likedBy.some((u: any) => u.id === useAuthStore.getState().user?.id));
-      // if backend includes a type for the current user's like, set reactionType
-      const currentUserId = useAuthStore.getState().user?.id;
-      let rType = null;
-      if (article.likes && currentUserId) {
-        const me = article.likes.find((u: any) => u.id === currentUserId);
-        rType = me?.NewsLike?.type ?? me?.type ?? null;
-      }
-      if (article.liked && article.likes?.length) {
-        // fallback: if liked and likes array available, try to infer type
-        rType = rType ?? null;
-      }
+      const count = article.likesCount ?? article.likes?.length ?? article.likedBy?.length ?? 0;
+      const isLiked = typeof article.liked === 'boolean'
+        ? article.liked
+        : !!(article.likedBy && article.likedBy.some((u: any) => u.id === useAuthStore.getState().user?.id));
+
+      // Current backend guarantees whether the article is liked, but not the current user's reaction type.
+      // Default to a generic 'like' when a user has reacted so the UI remains actionable.
+      const rType = isLiked ? 'like' : null;
+
       setLikesCount(count);
       setLiked(isLiked);
       setReactionType(rType);
@@ -104,10 +146,10 @@ export default function NewsDetails() {
                 const prevLiked = liked;
                 const prevCount = likesCount;
                 const prevType = reactionType;
-                // clicking thumbs sets type 'like'
-                const newType = prevLiked && prevType === 'like' ? null : 'like';
-                setLiked(!prevLiked || newType !== null);
-                setLikesCount(prevLiked && prevType === 'like' ? Math.max(0, prevCount - 1) : prevCount + 1);
+                const isRemovingLike = prevLiked && prevType === 'like';
+                const newType = isRemovingLike ? null : 'like';
+                setLiked(!isRemovingLike);
+                setLikesCount(isRemovingLike ? Math.max(0, prevCount - 1) : prevCount + 1);
                 setReactionType(newType);
                 likeMutation.mutate({ type: 'like' }, {
                   onError: () => {
@@ -144,9 +186,9 @@ export default function NewsDetails() {
                         setShowPalette(false);
                         if (!token) return toast.error('Please login to react');
                         const prevCount = likesCount ?? 0;
+                        const prevLiked = !!liked;
                         const prevType = reactionType;
-                        // if same type, remove
-                        const removing = prevType === r;
+                        const removing = prevLiked && prevType === r;
                         setReactionType(removing ? null : r);
                         setLiked(!removing);
                         setLikesCount(removing ? Math.max(0, prevCount - 1) : prevCount + 1);
@@ -174,7 +216,7 @@ export default function NewsDetails() {
         <h2 className="text-xl font-semibold mb-4">Comments ({commentsData?.data?.data?.length || 0})</h2>
 
         {token && (
-          <form onSubmit={(e) => { e.preventDefault(); commentMutation.mutate(); }} className="mb-6">
+          <form onSubmit={(e) => { e.preventDefault(); handleSubmitComment(); }} className="mb-6">
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
@@ -182,7 +224,7 @@ export default function NewsDetails() {
               placeholder="Write a comment..."
               rows={3}
             />
-            <button type="submit" disabled={!comment || commentMutation.isPending} className="btn-primary">
+            <button type="submit" disabled={!comment.trim() || commentMutation.isPending} className="btn-primary">
               {commentMutation.isPending ? 'Posting...' : 'Post Comment'}
             </button>
           </form>
@@ -191,7 +233,8 @@ export default function NewsDetails() {
         <div className="space-y-4">
           {commentsData?.data?.data?.map((c: any) => (
             <div key={c.id} className="border-b pb-4">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
                   <span className="text-xs text-primary-600">{c.author?.firstName?.[0]}</span>
                 </div>
@@ -199,6 +242,18 @@ export default function NewsDetails() {
                   <p className="font-medium">{c.author?.firstName} {c.author?.lastName}</p>
                   <p className="text-xs text-gray-500">{new Date(c.createdAt).toLocaleDateString()}</p>
                 </div>
+                </div>
+
+                {(user?.id === c.authorId || user?.role === 'admin') && (
+                  <button
+                    type="button"
+                    onClick={() => deleteCommentMutation.mutate(c.id)}
+                    className="text-gray-400 hover:text-rose-600 transition-colors"
+                    title="Delete comment"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               <p className="text-gray-700">{c.content}</p>
             </div>

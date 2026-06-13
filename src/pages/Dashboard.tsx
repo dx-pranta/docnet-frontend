@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Calendar,
   Heart,
@@ -10,15 +10,37 @@ import {
   PlusCircle,
   Send,
   ThumbsUp,
+  Trash2,
   Users,
+  X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 import { connectionService, eventService, newsService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { timeAgo } from '../utils/timeAgo';
 
 export default function Dashboard() {
-  const { user } = useAuthStore();
+  const { token, user } = useAuthStore();
+  const queryClient = useQueryClient();
+  const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postContent, setPostContent] = useState('');
+  const createPostMutation = useMutation({
+    mutationFn: () => newsService.createNews({ title: postTitle, content: postContent, status: 'published' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['news', 'dashboard'] });
+      setShowCreatePost(false);
+      setPostTitle('');
+      setPostContent('');
+      toast.success('Post created!');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to create post');
+    },
+  });
 
   const { data: eventsData } = useQuery({
     queryKey: ['events', 'dashboard'],
@@ -38,8 +60,68 @@ export default function Dashboard() {
   const events = eventsData?.data?.data || [];
   const news = newsData?.data?.data || [];
   const connections = connectionsData?.data?.data || [];
+  const dashboardCommentsKey = ['news-comments-dashboard', news.map((item: any) => item.id).join(',')];
+
+  const commentQueries = useQuery({
+    queryKey: dashboardCommentsKey,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        news.map(async (item: any) => {
+          const response = await newsService.getComments(item.id);
+          return [item.id, response.data.data || []] as const;
+        })
+      );
+
+      return Object.fromEntries(entries);
+    },
+    enabled: news.length > 0,
+  });
 
   const suggestedConnections = useMemo(() => connections.slice(0, 3), [connections]);
+
+  const reactionMutation = useMutation({
+    mutationFn: ({ newsId, type }: { newsId: number; type: string }) => newsService.likeNews(newsId, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['news', 'dashboard'] });
+    },
+    onError: () => {
+      toast.error('Failed to update reaction');
+    },
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: ({ newsId, content }: { newsId: number; content: string }) => newsService.addComment(newsId, content),
+    onSuccess: (response, variables) => {
+      setCommentInputs((previous) => ({ ...previous, [variables.newsId]: '' }));
+      queryClient.setQueryData(dashboardCommentsKey, (previous: any) => ({
+        ...(previous || {}),
+        [variables.newsId]: [response.data.data, ...((previous?.[variables.newsId] || []) as any[])],
+      }));
+      queryClient.invalidateQueries({ queryKey: ['news', 'dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['news-comments', String(variables.newsId)] });
+      queryClient.invalidateQueries({ queryKey: ['news-comments-dashboard'] });
+      toast.success('Comment added!');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to add comment');
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: ({ commentId }: { newsId: number; commentId: number }) => newsService.deleteComment(commentId),
+    onSuccess: (_, variables) => {
+      queryClient.setQueryData(dashboardCommentsKey, (previous: any) => ({
+        ...(previous || {}),
+        [variables.newsId]: ((previous?.[variables.newsId] || []) as any[]).filter((commentItem: any) => commentItem.id !== variables.commentId),
+      }));
+      queryClient.invalidateQueries({ queryKey: ['news-comments', String(variables.newsId)] });
+      queryClient.invalidateQueries({ queryKey: ['news-comments-dashboard'] });
+      toast.success('Comment deleted');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to delete comment');
+    },
+  });
 
   return (
     <div className="max-w-[1440px] mx-auto">
@@ -48,8 +130,12 @@ export default function Dashboard() {
           <section className="hf-card">
             <div className="hf-card-content">
               <div className="text-center space-y-4">
-                <div className="w-20 h-20 mx-auto rounded-full bg-ink-100 border border-ink-200 flex items-center justify-center">
-                  <span className="text-xl font-semibold text-ink-700">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
+                <div className="w-20 h-20 mx-auto rounded-full bg-ink-100 border border-ink-200 flex items-center justify-center overflow-hidden">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl font-semibold text-ink-700">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
+                  )}
                 </div>
                 <div>
                   <Link to={user ? `/profile/${user.id}` : '/dashboard'}>
@@ -96,10 +182,18 @@ export default function Dashboard() {
           <section className="hf-card">
             <div className="hf-card-content">
               <div className="flex gap-3 items-start">
-                <div className="w-10 h-10 rounded-full bg-ink-100 border border-ink-200 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-semibold text-ink-700">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
+                <div className="w-10 h-10 rounded-full bg-ink-100 border border-ink-200 flex items-center justify-center shrink-0 overflow-hidden">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-semibold text-ink-700">{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
+                  )}
                 </div>
-                <button type="button" className="flex-1 text-left px-4 py-3 rounded-xl bg-ink-100 hover:bg-ink-200 transition-colors text-ink-500">
+                <button
+                  type="button"
+                  className="flex-1 text-left px-4 py-3 rounded-xl bg-ink-100 hover:bg-ink-200 transition-colors text-ink-500"
+                  onClick={() => setShowCreatePost(true)}
+                >
                   Share an update with your network...
                 </button>
               </div>
@@ -116,7 +210,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-ink-800">{item.author?.firstName} {item.author?.lastName}</p>
-                      <p className="text-sm text-ink-500">News update</p>
+                      <p className="text-sm text-ink-500">{timeAgo(item.createdAt)}</p>
                     </div>
                   </div>
 
@@ -126,20 +220,110 @@ export default function Dashboard() {
                   {item.summary && <p className="text-sm text-ink-600">{item.summary}</p>}
 
                   <div className="flex items-center gap-2 text-sm border-t border-b border-ink-200 py-2 text-ink-500">
-                    <span>{item._count?.likes || 0} reactions</span>
-                    <span>{item._count?.comments || 0} comments</span>
+                    <span>{item.likesCount ?? item.likes?.length ?? item.likedBy?.length ?? 0} reactions</span>
+                    <span>{(commentQueries.data?.[item.id]?.length ?? item._count?.comments) || 0} comments</span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" className="btn-secondary px-3 py-2 text-sm"><ThumbsUp className="w-4 h-4" /> Like</button>
-                    <button type="button" className="btn-secondary px-3 py-2 text-sm"><Lightbulb className="w-4 h-4" /> Insightful</button>
-                    <button type="button" className="btn-secondary px-3 py-2 text-sm"><Heart className="w-4 h-4" /> Support</button>
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-2 text-sm"
+                      onClick={() => {
+                        if (!token) return toast.error('Please login to react');
+                        reactionMutation.mutate({ newsId: item.id, type: 'like' });
+                      }}
+                    >
+                      <ThumbsUp className="w-4 h-4" /> Like
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-2 text-sm"
+                      onClick={() => {
+                        if (!token) return toast.error('Please login to react');
+                        reactionMutation.mutate({ newsId: item.id, type: 'insightful' });
+                      }}
+                    >
+                      <Lightbulb className="w-4 h-4" /> Insightful
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-2 text-sm"
+                      onClick={() => {
+                        if (!token) return toast.error('Please login to react');
+                        reactionMutation.mutate({ newsId: item.id, type: 'support' });
+                      }}
+                    >
+                      <Heart className="w-4 h-4" /> Support
+                    </button>
                   </div>
 
                   <div className="flex gap-2">
-                    <input className="input-field text-sm" placeholder="Write a comment..." />
-                    <button type="button" className="btn-primary px-4"><Send className="w-4 h-4" /></button>
+                    <input
+                      className="input-field text-sm"
+                      placeholder="Write a comment..."
+                      value={commentInputs[item.id] || ''}
+                      onChange={(e) => setCommentInputs((previous) => ({ ...previous, [item.id]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const content = (commentInputs[item.id] || '').trim();
+                          if (!token) return toast.error('Please login to comment');
+                          if (!content) return;
+                          commentMutation.mutate({ newsId: item.id, content });
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-primary px-4"
+                      onClick={() => {
+                        const content = (commentInputs[item.id] || '').trim();
+                        if (!token) return toast.error('Please login to comment');
+                        if (!content) return toast.error('Comment cannot be empty');
+                        commentMutation.mutate({ newsId: item.id, content });
+                      }}
+                      disabled={commentMutation.isPending && !!commentInputs[item.id]}
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
                   </div>
+
+                  {(commentQueries.data?.[item.id]?.length || 0) > 0 && (
+                    <div className="space-y-3 border-t border-ink-200 pt-4">
+                      {commentQueries.data?.[item.id]?.slice(0, 3).map((commentItem: any) => (
+                        <div key={commentItem.id} className="flex gap-3">
+                          <div className="w-8 h-8 rounded-full bg-ink-100 border border-ink-200 flex items-center justify-center shrink-0 overflow-hidden">
+                            {commentItem.author?.avatar ? (
+                              <img src={commentItem.author.avatar} alt={`${commentItem.author.firstName} ${commentItem.author.lastName}`} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[10px] font-semibold text-ink-700">{commentItem.author?.firstName?.[0]}</span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="bg-ink-50 rounded-xl px-3 py-2">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-medium text-ink-800">{commentItem.author?.firstName} {commentItem.author?.lastName}</p>
+                                  <p className="text-sm text-ink-600 break-words">{commentItem.content}</p>
+                                </div>
+
+                                {(user?.id === commentItem.authorId || user?.role === 'admin') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteCommentMutation.mutate({ newsId: item.id, commentId: commentItem.id })}
+                                    className="text-ink-400 hover:text-rose-600 transition-colors"
+                                    title="Delete comment"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </article>
             ))
@@ -204,6 +388,40 @@ export default function Dashboard() {
           </section>
         </aside>
       </div>
+      {showCreatePost && (
+        <>
+          <div className="fixed inset-0 bg-slate-900/60 z-40" onClick={() => setShowCreatePost(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Create Post</h2>
+                <button onClick={() => setShowCreatePost(false)} className="p-1 rounded-lg hover:bg-ink-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <input
+                value={postTitle}
+                onChange={(e) => setPostTitle(e.target.value)}
+                className="input-field"
+                placeholder="Post title"
+              />
+              <textarea
+                value={postContent}
+                onChange={(e) => setPostContent(e.target.value)}
+                className="input-field min-h-[120px]"
+                placeholder="What's on your mind?"
+              />
+              <button
+                onClick={() => createPostMutation.mutate()}
+                disabled={!postTitle.trim() || !postContent.trim() || createPostMutation.isPending}
+                className="btn-primary w-full disabled:opacity-50"
+              >
+                {createPostMutation.isPending ? 'Publishing...' : 'Publish'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

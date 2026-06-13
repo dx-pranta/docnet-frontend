@@ -1,16 +1,18 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { galleryService } from '../services/api';
+import { galleryService, uploadService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
-import { FaHeart, FaRegHeart, FaTrash, FaImages } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaTrash, FaImages, FaUpload } from 'react-icons/fa';
 
 export default function GalleryDetails() {
   const { id } = useParams();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [blurSensitiveData, setBlurSensitiveData] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['gallery', id],
@@ -20,6 +22,23 @@ export default function GalleryDetails() {
   const likeMutation = useMutation({
     mutationFn: (photoId: number) => galleryService.likePhoto(photoId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery', id] }),
+  });
+
+  const addPhotosMutation = useMutation({
+    mutationFn: async (files: File[]) => {
+      const uploadResponses = await Promise.all(
+        files.map((file) => uploadService.uploadImage(file, blurSensitiveData))
+      );
+      const urls = uploadResponses.map((r) => r.data.data.url);
+      await galleryService.addPhotos(gallery.id, urls);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gallery', id] });
+      toast.success('Photos added');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to add photos');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -54,6 +73,38 @@ export default function GalleryDetails() {
             <FaImages className="text-primary-500" />
             <span className="font-medium">{gallery.photos?.length || 0} photos</span>
           </div>
+
+          {isOwner && (
+            <div className="ml-auto flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={blurSensitiveData}
+                  onChange={(e) => setBlurSensitiveData(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                <span className="text-xs text-slate-500">Blur faces</span>
+              </label>
+              <label className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer hover:bg-primary-700 transition-colors">
+                <FaUpload className="w-3.5 h-3.5" />
+                {addPhotosMutation.isPending ? 'Uploading...' : 'Add Photos'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={addPhotosMutation.isPending}
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length > 0) {
+                      addPhotosMutation.mutate(files);
+                    }
+                    e.currentTarget.value = '';
+                  }}
+                />
+              </label>
+            </div>
+          )}
         </div>
       </div>
 
@@ -99,37 +150,41 @@ export default function GalleryDetails() {
         </div>
       )}
 
-      {selectedPhoto && (
-        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-[100] transition-all" onClick={() => setSelectedPhoto(null)}>
-          <div className="max-w-5xl w-full p-4 md:p-8 flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-            <img src={selectedPhoto.url} alt="" className="w-full max-h-[75vh] object-contain rounded-xl shadow-2xl" />
+      {selectedPhoto && createPortal(
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-[100] transition-all p-4 md:p-8 overflow-y-auto" onClick={() => setSelectedPhoto(null)}>
+          <div className="w-full min-h-full flex items-center justify-center py-6" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full max-w-5xl flex flex-col items-center">
+              <img src={selectedPhoto.url} alt="" className="w-full max-h-[68vh] object-contain rounded-2xl shadow-2xl bg-slate-950/20" />
 
-            <div className="w-full max-w-2xl bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 md:p-6 mt-6 flex flex-col items-center">
-              {selectedPhoto.caption && <p className="text-white text-lg font-medium text-center mb-6">{selectedPhoto.caption}</p>}
+              <div className="w-full max-w-2xl bg-slate-800/90 backdrop-blur-md border border-white/10 rounded-2xl p-5 md:p-6 mt-5 flex flex-col items-center shadow-xl">
+                {selectedPhoto.caption && <p className="text-white text-lg font-medium text-center mb-5">{selectedPhoto.caption}</p>}
 
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                <button
-                  onClick={() => likeMutation.mutate(selectedPhoto.id)}
-                  className="flex items-center gap-2 bg-white text-slate-900 px-6 py-2.5 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-lg shadow-white/10"
-                >
-                  {selectedPhoto.likes?.includes(user?.id) ? <FaHeart className="text-rose-500" /> : <FaRegHeart />}
-                  {selectedPhoto.likes?.length || 0} likes
-                </button>
-                {isOwner && (
+                <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
-                    onClick={() => { deleteMutation.mutate(selectedPhoto.id); setSelectedPhoto(null); }}
-                    className="flex items-center gap-2 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 hover:text-rose-200 border border-rose-500/30 px-6 py-2.5 rounded-xl font-medium transition-colors"
+                    onClick={() => likeMutation.mutate(selectedPhoto.id)}
+                    className="flex items-center gap-2 bg-white text-slate-900 px-5 py-2.5 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-lg shadow-white/10"
                   >
-                    <FaTrash /> Delete Photo
+                    {selectedPhoto.likes?.includes(user?.id) ? <FaHeart className="text-rose-500" /> : <FaRegHeart />}
+                    {selectedPhoto.likes?.length || 0} likes
                   </button>
-                )}
-                <button onClick={() => setSelectedPhoto(null)} className="px-6 py-2.5 rounded-xl font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
-                  Close
-                </button>
+
+                  {isOwner && (
+                    <button
+                      onClick={() => { deleteMutation.mutate(selectedPhoto.id); setSelectedPhoto(null); }}
+                      className="flex items-center gap-2 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 hover:text-rose-200 border border-rose-500/30 px-5 py-2.5 rounded-xl font-medium transition-colors"
+                    >
+                      <FaTrash /> Delete Photo
+                    </button>
+                  )}
+                  <button onClick={() => setSelectedPhoto(null)} className="px-5 py-2.5 rounded-xl font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
