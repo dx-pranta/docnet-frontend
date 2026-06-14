@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createPortal } from 'react-dom';
 import { newsService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -16,6 +17,7 @@ export default function NewsDetails() {
   const [liked, setLiked] = useState<boolean | null>(null);
   const [reactionType, setReactionType] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const handleSubmitComment = () => {
     const nextComment = comment.trim();
@@ -131,7 +133,17 @@ export default function NewsDetails() {
         </div>
 
         {article.featuredImage && (
-          <img src={article.featuredImage} alt={article.title} className="w-full h-64 object-cover rounded-lg mb-6" />
+          <button
+            type="button"
+            onClick={() => setSelectedImage(article.featuredImage)}
+            className="block w-full mb-6"
+          >
+            <img
+              src={article.featuredImage}
+              alt={article.title}
+              className="w-full h-64 object-cover rounded-lg cursor-zoom-in"
+            />
+          </button>
         )}
 
         <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: article.content }} />
@@ -260,6 +272,25 @@ export default function NewsDetails() {
           ))}
         </div>
       </div>
+
+      {selectedImage && createPortal(
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-[100] transition-all p-4 md:p-8 overflow-y-auto" onClick={() => setSelectedImage(null)}>
+          <div className="w-full min-h-full flex items-center justify-center py-6" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full max-w-5xl flex flex-col items-center">
+              <img src={selectedImage} alt={article.title} className="w-full max-h-[68vh] object-contain rounded-2xl shadow-2xl bg-slate-950/20" />
+
+              <div className="w-full max-w-2xl bg-slate-800/90 backdrop-blur-md border border-white/10 rounded-2xl p-5 md:p-6 mt-5 flex flex-col items-center shadow-xl">
+                <p className="text-white text-lg font-medium text-center mb-5">{article.title}</p>
+
+                <button onClick={() => setSelectedImage(null)} className="px-5 py-2.5 rounded-xl font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

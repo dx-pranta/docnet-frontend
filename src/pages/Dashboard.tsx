@@ -5,19 +5,21 @@ import {
   Heart,
   Image as ImageIcon,
   Lightbulb,
+  Loader2,
   MapPin,
   MessageCircle,
   PlusCircle,
   Send,
   ThumbsUp,
   Trash2,
+  Upload,
   Users,
   X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-import { connectionService, eventService, newsService } from '../services/api';
+import { connectionService, eventService, newsService, uploadService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { timeAgo } from '../utils/timeAgo';
 
@@ -28,19 +30,68 @@ export default function Dashboard() {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
+  const [postCategory, setPostCategory] = useState('');
+  const [postTags, setPostTags] = useState('');
+  const [postStatus, setPostStatus] = useState<'published' | 'draft'>('published');
+  const [postImage, setPostImage] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState('');
+  const [blurSensitiveData, setBlurSensitiveData] = useState(false);
   const createPostMutation = useMutation({
-    mutationFn: () => newsService.createNews({ title: postTitle, content: postContent, status: 'published' }),
+    mutationFn: async () => {
+      let featuredImage: string | undefined;
+
+      if (postImage) {
+        const uploadResponse = await uploadService.uploadImage(postImage, blurSensitiveData);
+        featuredImage = uploadResponse.data.data.url;
+      }
+
+      return newsService.createNews({
+        title: postTitle,
+        content: postContent,
+        category: postCategory || undefined,
+        tags: postTags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+        featuredImage,
+        status: postStatus,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['news', 'dashboard'] });
       setShowCreatePost(false);
       setPostTitle('');
       setPostContent('');
+      setPostCategory('');
+      setPostTags('');
+      setPostStatus('published');
+      setPostImage(null);
+      setPostImagePreview('');
+      setBlurSensitiveData(false);
       toast.success('Post created!');
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to create post');
     },
   });
+
+  const handlePostImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setPostImage(file);
+    setPostImagePreview(file ? URL.createObjectURL(file) : '');
+  };
+
+  const clearPostDraft = () => {
+    setShowCreatePost(false);
+    setPostTitle('');
+    setPostContent('');
+    setPostCategory('');
+    setPostTags('');
+    setPostStatus('published');
+    setPostImage(null);
+    setPostImagePreview('');
+    setBlurSensitiveData(false);
+  };
 
   const { data: eventsData } = useQuery({
     queryKey: ['events', 'dashboard'],
@@ -403,12 +454,12 @@ export default function Dashboard() {
       </div>
       {showCreatePost && (
         <>
-          <div className="fixed inset-0 bg-slate-900/60 z-40" onClick={() => setShowCreatePost(false)} />
+          <div className="fixed inset-0 bg-slate-900/60 z-40" onClick={clearPostDraft} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Create Post</h2>
-                <button onClick={() => setShowCreatePost(false)} className="p-1 rounded-lg hover:bg-ink-100">
+                <button onClick={clearPostDraft} className="p-1 rounded-lg hover:bg-ink-100">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -424,12 +475,66 @@ export default function Dashboard() {
                 className="input-field min-h-[120px]"
                 placeholder="What's on your mind?"
               />
+              <div className="grid gap-4 md:grid-cols-2">
+                <input
+                  value={postCategory}
+                  onChange={(e) => setPostCategory(e.target.value)}
+                  className="input-field"
+                  placeholder="Category, e.g. Research"
+                />
+                <select value={postStatus} onChange={(e) => setPostStatus(e.target.value as 'published' | 'draft')} className="input-field">
+                  <option value="published">Publish now</option>
+                  <option value="draft">Save as draft</option>
+                </select>
+              </div>
+              <input
+                value={postTags}
+                onChange={(e) => setPostTags(e.target.value)}
+                className="input-field"
+                placeholder="Tags separated by commas"
+              />
+              <label className="border border-dashed border-ink-300 rounded-2xl p-5 bg-white cursor-pointer hover:bg-ink-50 transition-colors block">
+                <div className="flex items-center gap-3 text-ink-600">
+                  <Upload className="w-5 h-5" />
+                  <span className="font-medium">Choose a featured image</span>
+                </div>
+                <p className="text-sm text-ink-500 mt-2">PNG, JPG, WEBP up to 5MB</p>
+                <input type="file" accept="image/*" className="hidden" onChange={handlePostImageChange} />
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={blurSensitiveData}
+                  onChange={(e) => setBlurSensitiveData(e.target.checked)}
+                  className="rounded border-ink-300"
+                />
+                <span className="text-sm text-ink-600">Blur faces in uploaded image</span>
+              </label>
+              {postImagePreview && (
+                <div className="space-y-3">
+                  <img src={postImagePreview} alt="Post preview" className="w-full h-56 object-cover rounded-xl border border-ink-200" />
+                  <div className="flex items-center justify-between text-sm text-ink-500 bg-ink-50 rounded-xl px-4 py-3">
+                    <span>{postImage?.name}</span>
+                    <button
+                      type="button"
+                      className="text-rose-600 hover:text-rose-700"
+                      onClick={() => {
+                        setPostImage(null);
+                        setPostImagePreview('');
+                      }}
+                    >
+                      Remove image
+                    </button>
+                  </div>
+                </div>
+              )}
               <button
                 onClick={() => createPostMutation.mutate()}
                 disabled={!postTitle.trim() || !postContent.trim() || createPostMutation.isPending}
                 className="btn-primary w-full disabled:opacity-50"
               >
-                {createPostMutation.isPending ? 'Publishing...' : 'Publish'}
+                {createPostMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {createPostMutation.isPending ? 'Saving...' : postStatus === 'draft' ? 'Save Draft' : 'Publish'}
               </button>
             </div>
           </div>
